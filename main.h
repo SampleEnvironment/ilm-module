@@ -31,7 +31,7 @@
 #define T_TRANSMISSION_MAX_MIN 1     //1min
 #define T_TRANSMISSION_MAX_MAX 60*10 //10h
 
-#define N2_1_SPAN_DEF  1
+#define N2_1_SPAN_DEF  1		
 #define N2_1_SPAN_MIN  0.001
 #define N2_1_SPAN_MAX  2000
 
@@ -69,6 +69,8 @@
 #define HE_DELTA_MAX    1000
 
 
+#define SPAN_ZERO_DECIMAL_PLACES 10 // --> 0.1
+
 typedef struct {
 	double span;
 	double zero;
@@ -87,6 +89,38 @@ typedef struct {
 }optionsType;
 
 
+typedef struct {
+	double He;
+	double N2_1;
+	double N2_2;	
+} MeasType;
+
+/**
+* @brief Time Pressure or Temperature deltas
+*
+* All Variables in ILM-Module representing a difference in Time, or measured value since the last Measuerement/Send/Reset
+*/
+typedef struct {
+	MeasType values_since_last_send;       /**< @brief difference in he and n2 channels since last send */
+	uint32_t t_send;					   /**< @brief Time since last sending of Data */
+} deltaType;
+
+
+/**
+* @brief Pressure- & Timestamps of previous Events
+*
+* Absolute Times/Pressure of the last time an action was executetd i.e: Pinging the Server
+*/
+typedef struct {
+	MeasType Measurement_on_send;      /**< @brief Measured he and N2 Values last time Data was sent/stored to the Server/memory */
+	MeasType Measurement;
+	uint32_t time_send;				   /**< @brief Absolute time of last sending of Data*/
+	uint32_t time_ping;				   /**< @brief Absolute time of last Ping*/
+	uint32_t time_level_meas;  /**< @brief Absolute time of last Temp and Pressure Measurement */
+}lastType;
+
+
+
 
 
 void init_timer(void);
@@ -95,7 +129,9 @@ void write_optsEEPROM(void);
 uint8_t read_optsEEPROM(void);
 void set_Options(uint8_t * optBuffer);
 uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer);
-
+uint8_t ping_server(void);
+void execute_server_CMDS(uint8_t reply_id);
+void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index);
 
 
 #endif /* MAIN_H_ */

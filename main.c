@@ -11,11 +11,13 @@
 #include <string.h>
 
 #include "main.h"
+#include "adwandler.h"
 #include "usart.h"
 #include "xbee.h"
 #include "module_globals.h"
 #include "status.h"
 #include "xbee_utilities.h"
+#include "DS3231M.h"
 
 
 
@@ -57,6 +59,96 @@ optionsType Options = {
 };
 
 
+/************************************************************************/
+/*  Time- and Pressurestamps                                            */
+/************************************************************************/
+/**
+* @brief Time- and Pressurestamps
+*
+* Timestamps and Pressurevalues for last send/display-reset/ping - Event
+*/
+lastType last= {.time_send = 0,.time_ping = 0,.time_level_meas = 0};
+
+
+
+
+
+/**
+* @brief Checks current Connection Status. Possible states are "No Network" if no connection to a coordinator could be established. "No Server", if the Device is connected to a coordinator but, pings sent by #ping_server() are not answered. And "Online" if pings are answered by the server. The State is saved in #NetStatIndex
+*
+* @param dest_high high 32-bit of coordinator address
+* @param dest_low  low  32-bit of coordinator address
+*
+* @return uint8_t 1 if online and 0 if there are any problems with the connection to the server
+*/
+uint8_t analyze_Connection(void)
+{
+
+	if (!xbee_reconnect())
+	{
+		//Associated
+		CLEAR_ERROR(NETWORK_ERROR);
+		CLEAR_ERROR(NO_REPLY_ERROR);
+		
+		if(!ping_server()){
+			//offline
+			//LCD_paint_info_line("NoServ",0);
+			return 0;
+		}
+		else{
+			//online;
+			CLEAR_ERROR(NETWORK_ERROR);;
+			CLEAR_ERROR(NO_REPLY_ERROR);;
+			return 1;
+		}
+		
+	}
+	else
+	{
+		//offline
+		//LCD_paint_info_line("NoNetw",0);
+		return 0;
+	}
+
+}
+
+
+// Pings Server and resets Time
+/**
+* @brief Pings the server in order to check if the connection is still live. If no Pong was received after #COM_TIMEOUT_TIME the Network error Bit is set in status#device.
+*
+* @param dest_high high 32-bit of coordinator address
+* @param dest_low  low  32-bit of coordinator address
+*
+* @return uint8_t 1 if Ping successful and 0 if no Pong was received
+*/
+uint8_t ping_server(void)
+{
+	
+
+	sendbuffer[0]= 0;
+	if( 0xFF == xbee_send_request(ILM_Ping,sendbuffer,1))
+	{
+		_delay_ms(500);
+		SET_ERROR(NETWORK_ERROR);
+
+		return 0;
+	}
+	else
+	{
+		
+		// Ping Successful --> time is set to the received time
+		
+		Time.tm_sec  = answerbuffer[0];
+		Time.tm_min  = answerbuffer[1];
+		Time.tm_hour = answerbuffer[2];
+		Time.tm_mday = answerbuffer[3];
+		Time.tm_mon  = answerbuffer[4];
+		Time.tm_year = answerbuffer[5];
+		
+	}
+	return 1;
+}
 
 
 
@@ -198,6 +290,71 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer)
 }
 
 
+
+/**
+* @brief Decodes incoming Messages from the Server and act accordingly
+*
+* @param reply_id index of the message in #frameBuffer which will be decoded
+*
+*
+* @return void
+*/
+void execute_server_CMDS(uint8_t reply_id){
+	switch (frameBuffer[reply_id].type)
+	{
+		//=================================================================
+		case ILM_received_set_options:// set received Options
+		set_Options(frameBuffer[reply_id].data);
+		break;
+		
+		//=================================================================
+		case ILM_received_send_data: // Send Measurement Data immediately
+		Collect_Measurement_Data();
+		xbee_send_message(CMD_send_response_send_data_94,sendbuffer,MEASUREMENT_MESSAGE_LENGTH);
+		break;
+		
+		//=================================================================
+		case ILM_received_send_options : ;// send current options to Server
+
+		
+		uint16_t_to_Buffer(Options.ping_intervall,sendbuffer,0);
+		
+		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,2);
+		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,4);
+		
+		uint16_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,6);
+		uint16_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,8);
+		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,10);
+		
+		uint16_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,12);
+		uint16_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,14);
+		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,16);
+		
+		uint16_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,18);
+		uint16_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,20);
+		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,22);
+		
+		sendbuffer[23] = 0; // statusbyte
+				
+
+		xbee_send_message(ILM_send_options,sendbuffer,23);
+		break;
+	
+
+	}
+	//remove Frame from Buffer
+	
+	
+	buffer_removeData(reply_id);
+}
+
+void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index){
+	buffer[index]   =           var >> 8;
+	buffer[++index] = (uint8_t) var;
+}
+
+
+
 void set_Options(uint8_t * optBuffer){
 	
 	optionsType OptionsBuff ={
@@ -206,17 +363,17 @@ void set_Options(uint8_t * optBuffer){
 		.t_transmission_min  =            ((uint16_t) optBuffer[2] << 8) | optBuffer[3] ,
 		.t_transmission_max  =            ((uint16_t) optBuffer[4] << 8) | optBuffer[5] ,
 		
-		.helium_par.span     =		      ((double) (((uint16_t) optBuffer[6] << 8) | optBuffer[7]))/10 ,   // TODO genauigkeit von span und Zero ???
-		.helium_par.zero     =		      ((double) (((uint16_t) optBuffer[8] << 8) | optBuffer[9]))/10 ,
+		.helium_par.span     =		      ((double) (((uint16_t) optBuffer[6] << 8) | optBuffer[7]))/SPAN_ZERO_DECIMAL_PLACES ,   // TODO genauigkeit von span und Zero ???
+		.helium_par.zero     =		      ((double) (((uint16_t) optBuffer[8] << 8) | optBuffer[9]))/SPAN_ZERO_DECIMAL_PLACES ,
 		.helium_par.delta    =			  ((uint16_t) optBuffer[10] << 8) | optBuffer[11] ,
 		
-		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[12] << 8) | optBuffer[13]))/10 ,
-		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[14] << 8) | optBuffer[15]))/10 ,
+		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[12] << 8) | optBuffer[13]))/SPAN_ZERO_DECIMAL_PLACES ,
+		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[14] << 8) | optBuffer[15]))/SPAN_ZERO_DECIMAL_PLACES ,
 		.N2_1_par.delta    =			  ((uint16_t) optBuffer[16] << 8) | optBuffer[17] ,
 		
-		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[18] << 8) | optBuffer[19]))/10 ,
-		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[20] << 8) | optBuffer[21]))/10,
-		.N2_2_par.delta    =			  ((uint16_t) optBuffer[22] << 8) | optBuffer[23] 		
+		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[18] << 8) | optBuffer[19]))/SPAN_ZERO_DECIMAL_PLACES ,
+		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[20] << 8) | optBuffer[21]))/SPAN_ZERO_DECIMAL_PLACES,
+		.N2_2_par.delta    =			  ((uint16_t) optBuffer[22] << 8) | optBuffer[23]
 		
 	};
 	
@@ -253,13 +410,13 @@ void set_Options(uint8_t * optBuffer){
 	if (!Val_outof_Bounds)
 	{
 		sendbuffer[0] = 0; // setting options was successful
-		xbee_send_message(CMD_send_response_options_set_93,sendbuffer,1);
+		xbee_send_message(ILM_send_response_options_set,sendbuffer,1);
 		memcpy(&Options,&OptionsBuff,sizeof(Options));
 		return;
 	}
 	
 	sendbuffer[0] = 1; // setting options was not successful
-	xbee_send_message(CMD_send_response_options_set_93,sendbuffer,1);
+	xbee_send_message(ILM_send_response_options_set,sendbuffer,1);
 
 	
 
@@ -285,7 +442,7 @@ int main(void)
 				// Device Login
 				//=========================================================================
 
-				uint8_t reply_id = xbee_send_login_msg(CMD_send_registration_90, sendbuffer);
+				uint8_t reply_id = xbee_send_login_msg(ILM_login, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
 					set_Options(frameBuffer[reply_id].data);
@@ -306,15 +463,93 @@ int main(void)
 		}
 	}
 	
-	/* Replace with your application code */
+	//##########################################################################
+	//				MAIN LOOP
+	//##########################################################################
 	while (1)
 	{
+		
+		//TODO Measure Levels every measure Intervall
+		
+		
+
+		
+		if(!CHECK_ERROR(NETWORK_ERROR)){
+			// ONLINE
+			
+			//TODO Send Measurements according to time intervalls 
+
+			//==============================================================================================
+			//   PING
+			//==========================================================
+			// since pressure/temp is measured every 5s and ping is done every 60+2 seconds to ensure they dont get triggerd at the same Second
+			if (((count_t_elapsed % Options.ping_intervall) == 2) && ((count_t_elapsed - last.time_ping) > 5 ))
+			{
+				last.time_ping = count_t_elapsed;
+				
+				
+				if(!ping_server()){
+					if(!analyze_Connection()){
+						continue;
+					}
+				}
+				
+				
+			}
+			
+			//==============================================================================================
+			//   EXECUTE SERVER COMMANDS
+			//==========================================================
+			
+			uint8_t reply_id;
+			reply_id  = xbee_hasReply(LAST_NON_CMD_MSG,GREATER_THAN);
+			if (reply_id != 0xFF){
+				execute_server_CMDS(reply_id);
+			}
+
+			// execute Server Commands
+			
+		}
+		else
+		{
+			// Offline
+			//========================================================
+			//     RECONNECT
+			//========================================================
+			// try to Reconnect after every ping_intervall (Reconnect_after_time)
+			//========================================================
+			if (count_t_elapsed % Options.ping_intervall == 2){
+				if (!xbee_reconnect())
+				{
+					//Associated
+					CLEAR_ERROR(NETWORK_ERROR);
+					CLEAR_ERROR(NO_REPLY_ERROR);
+					if(!ping_server()){
+						CLEAR_ERROR(NETWORK_ERROR);
+						CLEAR_ERROR(NO_REPLY_ERROR);
+					}
+					
+				}
+			}
+
+
+			
+			
+			
+			
+			
+			
+			
+			
+		}
 	}
-}
+	
+	//=========================================================================
+	// Interrupts
+	//=========================================================================
 
-
-ISR(TIMER1_COMPA_vect)
-{
-	count_t_elapsed++;
-}
+	ISR(TIMER1_COMPA_vect)
+	{
+		count_t_elapsed++;
+	}
 
