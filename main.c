@@ -8,6 +8,7 @@
 #include <avr/io.h>
 #include <stdio.h>
 #include <avr/eeprom.h>
+#include <avr/interrupt.h>
 #include <string.h>
 
 #include "main.h"
@@ -37,7 +38,11 @@ optionsType EEMEM eeOptions = {
 	.N2_1_par.zero = N2_1_ZERO_DEF,
 	
 	.N2_2_par.span = N2_2_SPAN_DEF,
-	.N2_2_par.zero = N2_2_ZERO_DEF
+	.N2_2_par.zero = N2_2_ZERO_DEF,
+	
+	.measCycles = MEAS_CYCLES_DEF
+	
+
 	
 };
 
@@ -55,7 +60,9 @@ optionsType Options = {
 	.N2_1_par.zero = N2_1_ZERO_DEF,
 	
 	.N2_2_par.span = N2_2_SPAN_DEF,
-	.N2_2_par.zero = N2_2_ZERO_DEF
+	.N2_2_par.zero = N2_2_ZERO_DEF,
+	
+	.measCycles = MEAS_CYCLES_DEF
 };
 
 
@@ -70,7 +77,22 @@ optionsType Options = {
 lastType last= {.time_send = 0,.time_ping = 0,.time_level_meas = 0};
 
 
+// holds most recent meas data
+MeasType current_meas;
 
+deltaType delta = {
+	.t_send = 0,
+	.values_since_last_send.He = 0,
+	.values_since_last_send.N2_1 = 0,
+	.values_since_last_send.N2_2 = 0
+};
+
+/**
+* @brief Measurement Period
+*
+* Time between Measurements (in s)
+*/
+const uint8_t Measure_Interval = 2;
 
 
 /**
@@ -160,9 +182,9 @@ void init(void){
 	xbee_init(NULL,NULL,0);
 	init_timer();
 	
-	adc_init(0);
-	adc_init(1);
-	adc_init(2);
+	adc_init(HELIUM);
+	adc_init(NITROGEN_1);
+	adc_init(NITROGEN_2);
 	
 	//=========================================================================
 	// Enable global interrupts
@@ -290,6 +312,64 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer)
 }
 
 
+void read_channels(void){
+	current_meas.He   = (readChannel(HELIUM,    Options.measCycles) * Options.helium_par.span) + Options.helium_par.zero;
+	current_meas.N2_1 = (readChannel(NITROGEN_1,Options.measCycles) * Options.N2_1_par.span)   + Options.N2_1_par.zero;
+	current_meas.N2_2 = (readChannel(NITROGEN_2,Options.measCycles) * Options.N2_2_par.span)   + Options.N2_2_par.zero;
+	
+	
+	//update deltas
+	//HELIUM
+	//Avoid Overflow when subtracting
+	if(current_meas.He > last.Measurement_on_send.He)
+	{
+		delta.values_since_last_send.He = current_meas.He - last.Measurement_on_send.He;
+	}
+	else
+	{
+		delta.values_since_last_send.He =  last.Measurement_on_send.He - current_meas.He;
+	}
+	
+	
+	//NITROGEN 1
+	//Avoid Overflow when subtracting
+	if(current_meas.N2_1 > last.Measurement_on_send.N2_1)
+	{
+		delta.values_since_last_send.N2_1 = current_meas.N2_1 - last.Measurement_on_send.N2_1;
+	}
+	else
+	{
+		delta.values_since_last_send.N2_1 =  last.Measurement_on_send.N2_1 - current_meas.N2_1;
+	}
+	
+	//NITROGEN 2
+	//Avoid Overflow when subtracting
+	if(current_meas.N2_2 > last.Measurement_on_send.N2_2)
+	{
+		delta.values_since_last_send.N2_2 = current_meas.N2_2 - last.Measurement_on_send.N2_2;
+	}
+	else
+	{
+		delta.values_since_last_send.N2_2 =  last.Measurement_on_send.N2_2 - current_meas.N2_2;
+	}
+
+}
+
+void Collect_Measurement_Data(void){
+	uint16_t He_u16 = (uint16_t) current_meas.He;
+	
+	uint16_t N2_1_u16 = (uint16_t) current_meas.N2_1;
+	
+	uint16_t N2_2_u16 = (uint16_t) current_meas.N2_2;
+	
+	uint16_t_to_Buffer(He_u16,sendbuffer,0);
+	uint16_t_to_Buffer(N2_1_u16,sendbuffer,2);
+	uint16_t_to_Buffer(N2_2_u16,sendbuffer,4);
+	
+	sendbuffer[6] = 0; //TODO status byte!!!
+	
+}
+
 
 /**
 * @brief Decodes incoming Messages from the Server and act accordingly
@@ -304,13 +384,14 @@ void execute_server_CMDS(uint8_t reply_id){
 	{
 		//=================================================================
 		case ILM_received_set_options:// set received Options
-		set_Options(frameBuffer[reply_id].data);
+		set_Options((uint8_t*)frameBuffer[reply_id].data);
 		break;
 		
 		//=================================================================
 		case ILM_received_send_data: // Send Measurement Data immediately
+		read_channels();
 		Collect_Measurement_Data();
-		xbee_send_message(CMD_send_response_send_data_94,sendbuffer,MEASUREMENT_MESSAGE_LENGTH);
+		xbee_send_message(ILM_send_response_send_data,sendbuffer,MEASUREMENT_MESSAGE_LENGTH);
 		break;
 		
 		//=================================================================
@@ -334,12 +415,14 @@ void execute_server_CMDS(uint8_t reply_id){
 		uint16_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,20);
 		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,22);
 		
-		sendbuffer[23] = 0; // statusbyte
-				
+		sendbuffer[24] = Options.measCycles;
+		
+		sendbuffer[25] = 0; // statusbyte
+		
 
-		xbee_send_message(ILM_send_options,sendbuffer,23);
+		xbee_send_message(ILM_send_options,sendbuffer,25);
 		break;
-	
+		
 
 	}
 	//remove Frame from Buffer
@@ -355,7 +438,7 @@ void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index){
 
 
 
-void set_Options(uint8_t * optBuffer){
+void set_Options( uint8_t * optBuffer){
 	
 	optionsType OptionsBuff ={
 		.ping_intervall      =            ((uint16_t) optBuffer[0] << 8) | optBuffer[1] ,
@@ -373,7 +456,11 @@ void set_Options(uint8_t * optBuffer){
 		
 		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[18] << 8) | optBuffer[19]))/SPAN_ZERO_DECIMAL_PLACES ,
 		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[20] << 8) | optBuffer[21]))/SPAN_ZERO_DECIMAL_PLACES,
-		.N2_2_par.delta    =			  ((uint16_t) optBuffer[22] << 8) | optBuffer[23]
+		.N2_2_par.delta    =			  ((uint16_t) optBuffer[22] << 8) | optBuffer[23],
+		
+		.measCycles		   =              optBuffer[24]
+		
+		
 		
 	};
 	
@@ -445,7 +532,7 @@ int main(void)
 				uint8_t reply_id = xbee_send_login_msg(ILM_login, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
-					set_Options(frameBuffer[reply_id].data);
+					set_Options((uint8_t*)frameBuffer[reply_id].data);
 				}
 				else // DEFECTIVE OPTIONS RECEIVED
 				{
@@ -469,15 +556,70 @@ int main(void)
 	while (1)
 	{
 		
-		//TODO Measure Levels every measure Intervall
 		
+		
+		if((count_t_elapsed % Measure_Interval == 0) && ((count_t_elapsed - last.time_level_meas) > 1 )) //every Measure_Intervall
+		{
+			last.time_level_meas = count_t_elapsed;
+
+			read_channels();
+			
+
+			
+			
+		}
+		
+		
+		delta.t_send = count_t_elapsed - last.time_send;
 		
 
 		
 		if(!CHECK_ERROR(NETWORK_ERROR)){
 			// ONLINE
 			
-			//TODO Send Measurements according to time intervalls 
+			
+			//============================================================================================================================================
+			// checks if either:
+			// 1. the maximum time(t_transmission_max) has passed since last send  OR
+			// 2. delta_HE is reached and at least t_transmission_min time has passed since last send
+			// 3. delta_N2_1 is reached and at least t_transmission_min time has passed since last send
+			// 4. delta_N2_2 is reached and at least t_transmission_min time has passed since last send
+			
+			
+			if((delta.t_send >= Options.t_transmission_max * 60)|| //
+			(delta.t_send >= Options.t_transmission_min && delta.values_since_last_send.He > Options.helium_par.delta)||
+			(delta.t_send >= Options.t_transmission_min && delta.values_since_last_send.N2_1 > Options.N2_1_par.delta)||
+			(delta.t_send >= Options.t_transmission_min && delta.values_since_last_send.N2_2 > Options.N2_2_par.delta))
+			{
+
+				
+
+				Collect_Measurement_Data();
+
+				// send Measurement Data to Server
+				if( 0xFF ==xbee_send_request(ILM_SEND_DATA,sendbuffer,MEASUREMENT_MESSAGE_LENGTH))
+				{
+					SET_ERROR(NETWORK_ERROR);
+					analyze_Connection();
+				}
+				
+				
+				// Reset for delta calculation
+				delta.values_since_last_send.He = 0;
+				delta.values_since_last_send.N2_1 = 0;
+				delta.values_since_last_send.N2_2 = 0;
+				
+				// Reset for delta calculation
+				last.Measurement_on_send.He = current_meas.He;
+				last.Measurement_on_send.N2_1 = current_meas.N2_1;
+				last.Measurement_on_send.N2_2 = current_meas.N2_2;
+				
+				
+				// Reset for time since last sent i.e. delta_t_send
+				last.time_send = count_t_elapsed;
+				
+
+			}
 
 			//==============================================================================================
 			//   PING
@@ -543,13 +685,14 @@ int main(void)
 			
 		}
 	}
-	
-	//=========================================================================
-	// Interrupts
-	//=========================================================================
+}
 
-	ISR(TIMER1_COMPA_vect)
-	{
-		count_t_elapsed++;
-	}
+//=========================================================================
+// Interrupts
+//=========================================================================
+
+ISR(TIMER1_COMPA_vect)
+{
+	count_t_elapsed++;
+}
 

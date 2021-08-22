@@ -13,6 +13,10 @@
 
 #define BRANCH_ID 1
 
+#define HELIUM 1
+#define NITROGEN_1   2
+#define NITROGEN_2   3
+
 
 #define CHECK_BOUNDS(VAR,MIN,MAX,DEF,FLAG) if((VAR < MIN) || (VAR > MAX || isnan(VAR))){VAR = DEF; FLAG = 1;};
 
@@ -68,8 +72,14 @@
 #define HE_DELTA_MIN    0
 #define HE_DELTA_MAX    1000
 
+#define MEAS_CYCLES_DEF 40
+#define MEAS_CYCLES_MIN  1
+#define MEAS_CYCLES_MAX 250
+
 
 #define SPAN_ZERO_DECIMAL_PLACES 10 // --> 0.1
+#define MEASUREMENT_MESSAGE_LENGTH 7
+
 
 typedef struct {
 	double span;
@@ -86,6 +96,8 @@ typedef struct {
 	ADCparamsType helium_par;
 	ADCparamsType N2_1_par;
 	ADCparamsType N2_2_par;
+	
+	uint8_t measCycles;
 }optionsType;
 
 
@@ -132,6 +144,7 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer);
 uint8_t ping_server(void);
 void execute_server_CMDS(uint8_t reply_id);
 void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index);
-
+void read_channels(void);
+void Collect_Measurement_Data(void);
 
 #endif /* MAIN_H_ */
