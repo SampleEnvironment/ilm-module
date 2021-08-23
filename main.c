@@ -147,6 +147,7 @@ uint8_t analyze_Connection(void)
 uint8_t ping_server(void)
 {
 	
+	
 
 	sendbuffer[0]= 0;
 	if( 0xFF == xbee_send_request(ILM_Ping,sendbuffer,1))
@@ -403,24 +404,24 @@ void execute_server_CMDS(uint8_t reply_id){
 		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,2);
 		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,4);
 		
-		uint16_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,6);
-		uint16_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,8);
-		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,10);
+		uint32_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,6);
+		uint32_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,10);
+		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,14);
 		
-		uint16_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,12);
-		uint16_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,14);
-		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,16);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,16);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,20);
+		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,24);
 		
-		uint16_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,18);
-		uint16_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,20);
-		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,22);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,26);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,30);
+		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,34);
 		
-		sendbuffer[24] = Options.measCycles;
+		sendbuffer[36] = Options.measCycles;
 		
-		sendbuffer[25] = 0; // statusbyte
+		sendbuffer[37] = 0; // statusbyte
 		
 
-		xbee_send_message(ILM_send_options,sendbuffer,25);
+		xbee_send_message(ILM_send_options,sendbuffer,38);
 		break;
 		
 
@@ -437,6 +438,18 @@ void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index){
 }
 
 
+void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index){
+	buffer[index]   =           var >> 24;
+	buffer[index]   =           var >> 16;
+	buffer[index]   =           var >> 8;
+	buffer[++index] = (uint8_t) var;
+}
+
+double span_zero_from_Buffer( uint8_t * buffer, uint8_t index){
+	return ((double) (((uint32_t) buffer[index] << 24) |((uint32_t) buffer[index+1] << 16) |((uint32_t) buffer[index+2] << 8) | buffer[index+3]))/SPAN_ZERO_DECIMAL_PLACES;
+}
+
+
 
 void set_Options( uint8_t * optBuffer){
 	
@@ -446,19 +459,19 @@ void set_Options( uint8_t * optBuffer){
 		.t_transmission_min  =            ((uint16_t) optBuffer[2] << 8) | optBuffer[3] ,
 		.t_transmission_max  =            ((uint16_t) optBuffer[4] << 8) | optBuffer[5] ,
 		
-		.helium_par.span     =		      ((double) (((uint16_t) optBuffer[6] << 8) | optBuffer[7]))/SPAN_ZERO_DECIMAL_PLACES ,   // TODO genauigkeit von span und Zero ???
-		.helium_par.zero     =		      ((double) (((uint16_t) optBuffer[8] << 8) | optBuffer[9]))/SPAN_ZERO_DECIMAL_PLACES ,
-		.helium_par.delta    =			  ((uint16_t) optBuffer[10] << 8) | optBuffer[11] ,
+		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,6),  
+		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,10) ,  
+		.helium_par.delta    =			  ((uint16_t) optBuffer[14] << 8) | optBuffer[15] ,
 		
-		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[12] << 8) | optBuffer[13]))/SPAN_ZERO_DECIMAL_PLACES ,
-		.N2_1_par.span     =		      ((double) (((uint16_t) optBuffer[14] << 8) | optBuffer[15]))/SPAN_ZERO_DECIMAL_PLACES ,
-		.N2_1_par.delta    =			  ((uint16_t) optBuffer[16] << 8) | optBuffer[17] ,
+		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,16),  
+		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,20) ,  
+		.N2_1_par.delta    =			  ((uint16_t) optBuffer[24] << 8) | optBuffer[25] ,
 		
-		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[18] << 8) | optBuffer[19]))/SPAN_ZERO_DECIMAL_PLACES ,
-		.N2_2_par.span     =		      ((double) (((uint16_t) optBuffer[20] << 8) | optBuffer[21]))/SPAN_ZERO_DECIMAL_PLACES,
-		.N2_2_par.delta    =			  ((uint16_t) optBuffer[22] << 8) | optBuffer[23],
+		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,26) ,  
+		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,30) ,  
+		.N2_2_par.delta    =			  ((uint16_t) optBuffer[34] << 8) | optBuffer[35],
 		
-		.measCycles		   =              optBuffer[24]
+		.measCycles		   =              optBuffer[36]
 		
 		
 		

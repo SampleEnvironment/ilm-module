@@ -21,7 +21,7 @@
 #define CHECK_BOUNDS(VAR,MIN,MAX,DEF,FLAG) if((VAR < MIN) || (VAR > MAX || isnan(VAR))){VAR = DEF; FLAG = 1;};
 
 
-#define NUMBER_LOGIN_BYTES 4 //TODO
+#define NUMBER_LOGIN_BYTES 37 //TODO
 
 #define PING_INTERVALL_DEF 60*10
 #define PING_INTERVALL_MIN 60
@@ -36,29 +36,29 @@
 #define T_TRANSMISSION_MAX_MAX 60*10 //10h
 
 #define N2_1_SPAN_DEF  1		
-#define N2_1_SPAN_MIN  0.001
-#define N2_1_SPAN_MAX  2000
+#define N2_1_SPAN_MIN  0.0001
+#define N2_1_SPAN_MAX  10000
 
 #define N2_1_ZERO_DEF  0
-#define N2_1_ZERO_MIN  (-2000)
-#define N2_1_ZERO_MAX  ( 2000)
+#define N2_1_ZERO_MIN  (-10000)
+#define N2_1_ZERO_MAX  ( 10000)
 
 #define N2_2_SPAN_DEF  1
-#define N2_2_SPAN_MIN  0.001
-#define N2_2_SPAN_MAX  2000
+#define N2_2_SPAN_MIN  0.0001
+#define N2_2_SPAN_MAX  10000
 
 #define N2_2_ZERO_DEF  0
-#define N2_2_ZERO_MIN  (-2000)
-#define N2_2_ZERO_MAX  ( 2000)
+#define N2_2_ZERO_MIN  (-10000)
+#define N2_2_ZERO_MAX  ( 10000)
 
 
 #define HE_SPAN_DEF  1
-#define HE_SPAN_MIN  0.001
-#define HE_SPAN_MAX  2000
+#define HE_SPAN_MIN  0.0001
+#define HE_SPAN_MAX  10000
 
 #define HE_ZERO_DEF  0
-#define HE_ZERO_MIN  (-2000)
-#define HE_ZERO_MAX  ( 2000)
+#define HE_ZERO_MIN  (-10000)
+#define HE_ZERO_MAX  ( 10000)
 
 #define N2_1_DELTA_DEF  10
 #define N2_1_DELTA_MIN  0
@@ -77,7 +77,7 @@
 #define MEAS_CYCLES_MAX 250
 
 
-#define SPAN_ZERO_DECIMAL_PLACES 10 // --> 0.1
+#define SPAN_ZERO_DECIMAL_PLACES 10000 // --> 0.0001
 #define MEASUREMENT_MESSAGE_LENGTH 7
 
 
@@ -144,6 +144,8 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer);
 uint8_t ping_server(void);
 void execute_server_CMDS(uint8_t reply_id);
 void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index);
+void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index);
+double span_zero_from_Buffer( uint8_t * buffer, uint8_t index);
 void read_channels(void);
 void Collect_Measurement_Data(void);
 
