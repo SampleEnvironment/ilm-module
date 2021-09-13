@@ -9,7 +9,7 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
-#define FIRMWARE_VERSION  2 /**< @brief  Software Version  */
+#define FIRMWARE_VERSION  3 /**< @brief  Software Version  */
 
 #define BRANCH_ID 1
 
@@ -74,7 +74,7 @@
 
 #define MEAS_CYCLES_DEF 40
 #define MEAS_CYCLES_MIN  1
-#define MEAS_CYCLES_MAX 250
+#define MEAS_CYCLES_MAX 255
 
 
 #define SPAN_ZERO_DECIMAL_PLACES 10000 // --> 0.0001

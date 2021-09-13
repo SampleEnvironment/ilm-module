@@ -23,7 +23,7 @@
 
 
 uint8_t 	sendbuffer[SINGLE_FRAME_LENGTH]; /**< @brief Send only Buffer used for sending data to the server for which no reply is expected i.e. Measurement data #CMD_send_data_91*/
-uint8_t     answerbuffer[SINGLE_FRAME_LENGTH]; /**< @brief Contains Answer to the last sent Request*/
+
 
 optionsType EEMEM eeOptions = {
 	.ping_intervall = PING_INTERVALL_DEF,
@@ -146,11 +146,9 @@ uint8_t analyze_Connection(void)
 */
 uint8_t ping_server(void)
 {
-	
-	
-
 	sendbuffer[0]= 0;
-	if( 0xFF == xbee_send_request(ILM_Ping,sendbuffer,1))
+	uint8_t reply_id = xbee_send_request(PING_MSG,sendbuffer,1);
+	if( 0xFF == reply_id)
 	{
 		_delay_ms(500);
 		SET_ERROR(NETWORK_ERROR);
@@ -159,15 +157,13 @@ uint8_t ping_server(void)
 	}
 	else
 	{
-		
 		// Ping Successful --> time is set to the received time
-		
-		Time.tm_sec  = answerbuffer[0];
-		Time.tm_min  = answerbuffer[1];
-		Time.tm_hour = answerbuffer[2];
-		Time.tm_mday = answerbuffer[3];
-		Time.tm_mon  = answerbuffer[4];
-		Time.tm_year = answerbuffer[5];
+		Time.tm_sec  = frameBuffer[reply_id].data[0];
+		Time.tm_min  = frameBuffer[reply_id].data[1];
+		Time.tm_hour = frameBuffer[reply_id].data[2];
+		Time.tm_mday = frameBuffer[reply_id].data[3];
+		Time.tm_mon  = frameBuffer[reply_id].data[4];
+		Time.tm_year = frameBuffer[reply_id].data[5];
 		
 	}
 	return 1;
@@ -256,7 +252,12 @@ uint8_t read_optsEEPROM(void){
 		Val_outof_Bounds = 1 ;
 	}
 	
-	memcpy(&Options,&OptionsBuff,sizeof(Options));
+	
+	if (!Val_outof_Bounds)
+	{
+		memcpy(&Options,&OptionsBuff,sizeof(Options));
+	}
+	
 	
 	return Val_outof_Bounds;
 }
@@ -384,19 +385,19 @@ void execute_server_CMDS(uint8_t reply_id){
 	switch (frameBuffer[reply_id].type)
 	{
 		//=================================================================
-		case ILM_received_set_options:// set received Options
+		case SET_OPTIONS_CMD:// set received Options
 		set_Options((uint8_t*)frameBuffer[reply_id].data);
 		break;
 		
 		//=================================================================
-		case ILM_received_send_data: // Send Measurement Data immediately
+		case TRIGGER_MEAS_CMD: // Send Measurement Data immediately
 		read_channels();
 		Collect_Measurement_Data();
-		xbee_send_message(ILM_send_response_send_data,sendbuffer,MEASUREMENT_MESSAGE_LENGTH);
+		xbee_send_message(TRIGGER_MEAS_CMD,sendbuffer,MEASUREMENT_MESSAGE_LENGTH);
 		break;
 		
 		//=================================================================
-		case ILM_received_send_options : ;// send current options to Server
+		case GET_OPTIONS_CMD : ;// send current options to Server
 
 		
 		uint16_t_to_Buffer(Options.ping_intervall,sendbuffer,0);
@@ -421,7 +422,22 @@ void execute_server_CMDS(uint8_t reply_id){
 		sendbuffer[37] = 0; // statusbyte
 		
 
-		xbee_send_message(ILM_send_options,sendbuffer,38);
+		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,38);
+		break;
+		
+		case SET_PING_INTERVALL_CMD: 
+		;
+		uint8_t Val_outof_Bounds = 0;
+		
+		uint16_t buff_ping_Intervall  =            ((uint16_t) frameBuffer[reply_id].data[0] << 8) | frameBuffer[reply_id].data[1] ;
+		
+		CHECK_BOUNDS(buff_ping_Intervall,PING_INTERVALL_MIN,PING_INTERVALL_MAX,PING_INTERVALL_DEF,Val_outof_Bounds);
+		if (!Val_outof_Bounds)
+		{
+			Options.ping_intervall = buff_ping_Intervall;
+		}
+		sendbuffer[0] = 0;
+		xbee_send_message(SET_PING_INTERVALL_CMD,sendbuffer,1);
 		break;
 		
 
@@ -459,16 +475,16 @@ void set_Options( uint8_t * optBuffer){
 		.t_transmission_min  =            ((uint16_t) optBuffer[2] << 8) | optBuffer[3] ,
 		.t_transmission_max  =            ((uint16_t) optBuffer[4] << 8) | optBuffer[5] ,
 		
-		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,6),  
-		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,10) ,  
+		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,6),
+		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,10) ,
 		.helium_par.delta    =			  ((uint16_t) optBuffer[14] << 8) | optBuffer[15] ,
 		
-		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,16),  
-		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,20) ,  
+		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,16),
+		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,20) ,
 		.N2_1_par.delta    =			  ((uint16_t) optBuffer[24] << 8) | optBuffer[25] ,
 		
-		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,26) ,  
-		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,30) ,  
+		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,26) ,
+		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,30) ,
 		.N2_2_par.delta    =			  ((uint16_t) optBuffer[34] << 8) | optBuffer[35],
 		
 		.measCycles		   =              optBuffer[36]
@@ -510,13 +526,13 @@ void set_Options( uint8_t * optBuffer){
 	if (!Val_outof_Bounds)
 	{
 		sendbuffer[0] = 0; // setting options was successful
-		xbee_send_message(ILM_send_response_options_set,sendbuffer,1);
+		xbee_send_message(OPTIONS_SET_ACK,sendbuffer,1);
 		memcpy(&Options,&OptionsBuff,sizeof(Options));
 		return;
 	}
 	
 	sendbuffer[0] = 1; // setting options was not successful
-	xbee_send_message(ILM_send_response_options_set,sendbuffer,1);
+	xbee_send_message(OPTIONS_SET_ACK,sendbuffer,1);
 
 	
 
@@ -542,7 +558,7 @@ int main(void)
 				// Device Login
 				//=========================================================================
 
-				uint8_t reply_id = xbee_send_login_msg(ILM_login, sendbuffer);
+				uint8_t reply_id = xbee_send_login_msg(LOGIN_MSG, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
 					set_Options((uint8_t*)frameBuffer[reply_id].data);
@@ -610,7 +626,7 @@ int main(void)
 				Collect_Measurement_Data();
 
 				// send Measurement Data to Server
-				if( 0xFF ==xbee_send_request(ILM_SEND_DATA,sendbuffer,MEASUREMENT_MESSAGE_LENGTH))
+				if( 0xFF ==xbee_send_request(MEAS_MSG,sendbuffer,MEASUREMENT_MESSAGE_LENGTH))
 				{
 					SET_ERROR(NETWORK_ERROR);
 					analyze_Connection();
