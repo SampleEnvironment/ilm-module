@@ -436,7 +436,9 @@ void execute_server_CMDS(uint8_t reply_id){
 		{
 			Options.ping_intervall = buff_ping_Intervall;
 		}
-		sendbuffer[0] = 0;
+		sendbuffer[0] = Val_outof_Bounds;
+		
+		//send status ack
 		xbee_send_message(SET_PING_INTERVALL_CMD,sendbuffer,1);
 		break;
 		
