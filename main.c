@@ -358,11 +358,14 @@ void read_channels(void){
 }
 
 void Collect_Measurement_Data(void){
-	uint16_t He_u16 = (uint16_t) current_meas.He;
 	
-	uint16_t N2_1_u16 = (uint16_t) current_meas.N2_1;
 	
-	uint16_t N2_2_u16 = (uint16_t) current_meas.N2_2;
+	
+	uint16_t He_u16 = (uint16_t) (current_meas.He*10);
+	
+	uint16_t N2_1_u16 = (uint16_t) (current_meas.N2_1*10);
+	
+	uint16_t N2_2_u16 = (uint16_t) (current_meas.N2_2*10);
 	
 	uint16_t_to_Buffer(He_u16,sendbuffer,0);
 	uint16_t_to_Buffer(N2_1_u16,sendbuffer,2);
