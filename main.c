@@ -19,7 +19,7 @@
 #include "status.h"
 #include "xbee_utilities.h"
 #include "DS3231M.h"
-
+#include "LCD.h"
 
 
 uint8_t 	sendbuffer[SINGLE_FRAME_LENGTH]; /**< @brief Send only Buffer used for sending data to the server for which no reply is expected i.e. Measurement data #CMD_send_data_91*/
@@ -170,25 +170,62 @@ uint8_t ping_server(void)
 }
 
 
+/**
+* @brief Initializes the interrupts of the controller.
+*
+*
+* @return void
+*/
+void init_interrupts(void)
+{
+	EICRA |= (1<<ISC21);
+	EIMSK |= (1<<INT2);
+}
+
+
+/**
+* @brief Initializes the ports of the controller.
+*
+*
+* @return void
+*/
+void init_ports(void)
+{
+	DDRC |= (1<<PINC4);
+}
+
+void paint_none(char* infoline,_Bool update){
+	
+}
 
 void init(void){
 	
 	version_INIT(FIRMWARE_VERSION,BRANCH_ID,FIRMWARE_VERSION);
-	usart_init(39);  //USART0 init with 9600 baud
-	usart1_init(39); //USART1 init with 9600 baud
-	xbee_init(NULL,NULL,0);
-	init_timer();
 	
+	//init_ports();
+	
+	_delay_ms(1000);
+	usart_init(39);  //USART0 init with 9600 baud
+	_delay_ms(100);
+
+	//init_interrupts();
+	xbee_init(&paint_none,NULL,0);
+	_delay_ms(10);
+	init_timer();
+	_delay_ms(1000);
 	adc_init(HELIUM);
+	_delay_ms(100);
 	adc_init(NITROGEN_1);
+	_delay_ms(100);
 	adc_init(NITROGEN_2);
+	_delay_ms(100);
 	
 	//=========================================================================
 	// Enable global interrupts
 	//=========================================================================
 	sei();
 
-	
+	xbee_hardware_version();
 	
 }
 
@@ -389,7 +426,7 @@ void execute_server_CMDS(uint8_t reply_id){
 	{
 		//=================================================================
 		case SET_OPTIONS_CMD:// set received Options
-		set_Options((uint8_t*)frameBuffer[reply_id].data);
+		set_Options((uint8_t*)frameBuffer[reply_id].data,SET_OPTIONS_CMD);
 		break;
 		
 		//=================================================================
@@ -428,7 +465,7 @@ void execute_server_CMDS(uint8_t reply_id){
 		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,38);
 		break;
 		
-		case SET_PING_INTERVALL_CMD: 
+		case SET_PING_INTERVALL_CMD:
 		;
 		uint8_t Val_outof_Bounds = 0;
 		
@@ -472,7 +509,7 @@ double span_zero_from_Buffer( uint8_t * buffer, uint8_t index){
 
 
 
-void set_Options( uint8_t * optBuffer){
+void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 	
 	optionsType OptionsBuff ={
 		.ping_intervall      =            ((uint16_t) optBuffer[0] << 8) | optBuffer[1] ,
@@ -527,17 +564,20 @@ void set_Options( uint8_t * optBuffer){
 		Val_outof_Bounds = 1 ;
 	}
 	
-	
 	if (!Val_outof_Bounds)
 	{
-		sendbuffer[0] = 0; // setting options was successful
-		xbee_send_message(OPTIONS_SET_ACK,sendbuffer,1);
+		//no problem with received options --> save them in operational struct
 		memcpy(&Options,&OptionsBuff,sizeof(Options));
-		return;
+		write_optsEEPROM();
+		sendbuffer[0] = 0; // setting options was successful
+		xbee_send_message(answer_code,sendbuffer,1);
+		}else{
+		
+		sendbuffer[0] = 1; // setting options was not successful
+		xbee_send_message(answer_code,sendbuffer,1);
 	}
 	
-	sendbuffer[0] = 1; // setting options was not successful
-	xbee_send_message(OPTIONS_SET_ACK,sendbuffer,1);
+
 
 	
 
@@ -545,13 +585,20 @@ void set_Options( uint8_t * optBuffer){
 
 int main(void)
 {
-	init();
 	
+	
+	init();
+
+	//init_LCD();
+	
+
+	_delay_ms(4000);
 	
 	read_optsEEPROM();
 	
 	if(xbee_reset_connection())
 	{
+
 		if(xbee_get_server_adrr())
 		{
 			_delay_ms(2000);
@@ -566,7 +613,9 @@ int main(void)
 				uint8_t reply_id = xbee_send_login_msg(LOGIN_MSG, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
-					set_Options((uint8_t*)frameBuffer[reply_id].data);
+					
+					set_Options((uint8_t*)frameBuffer[reply_id].data,OPTIONS_SET_ACK);
+					
 				}
 				else // DEFECTIVE OPTIONS RECEIVED
 				{
@@ -583,7 +632,7 @@ int main(void)
 
 		}
 	}
-	
+
 	//##########################################################################
 	//				MAIN LOOP
 	//##########################################################################

@@ -139,7 +139,7 @@ void init_timer(void);
 void init(void);
 void write_optsEEPROM(void);
 uint8_t read_optsEEPROM(void);
-void set_Options(uint8_t * optBuffer);
+void set_Options( uint8_t * optBuffer,uint8_t answer_code);
 uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer);
 uint8_t ping_server(void);
 void execute_server_CMDS(uint8_t reply_id);
