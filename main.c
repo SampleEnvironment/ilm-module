@@ -171,6 +171,7 @@ uint8_t ping_server(void)
 
 void debug_ms(char * debug_message,int16_t number){
 	#ifdef LCD_DEBUG
+	LCD_Clear();
 	LCD_String(debug_message,0,0);
 	
 	char temp[13];
@@ -178,7 +179,7 @@ void debug_ms(char * debug_message,int16_t number){
 	sprintf(temp,"%i",number);
 	LCD_String(temp,0,1);
 	
-	_delay_ms(500);
+	_delay_ms(1000);
 	
 	#endif
 }
@@ -382,6 +383,13 @@ void read_channels(void){
 	current_meas.N2_1 = (readChannel(NITROGEN_1,Options.measCycles) * Options.N2_1_par.span)   + Options.N2_1_par.zero;
 	current_meas.N2_2 = (readChannel(NITROGEN_2,Options.measCycles) * Options.N2_2_par.span)   + Options.N2_2_par.zero;
 	
+	current_meas.He   = (current_meas.He   > 100)? 100.0 : current_meas.He;
+	current_meas.N2_1 = (current_meas.N2_1 > 100)? 100.0 : current_meas.N2_1;
+	current_meas.N2_2 = (current_meas.N2_2 > 100)? 100.0 : current_meas.N2_2;
+	
+	current_meas.He   = (current_meas.He   < 0)? 0.0 : current_meas.He;
+	current_meas.N2_1 = (current_meas.N2_1 < 0)? 0.0 : current_meas.N2_1;
+	current_meas.N2_2 = (current_meas.N2_2 < 0)? 0.0 : current_meas.N2_2;
 	
 	//update deltas
 	//HELIUM
