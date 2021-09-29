@@ -17,15 +17,17 @@
 #define NITROGEN_1   2
 #define NITROGEN_2   3
 
+#define  LCD_DEBUG
+
 
 #define CHECK_BOUNDS(VAR,MIN,MAX,DEF,FLAG) if((VAR < MIN) || (VAR > MAX || isnan(VAR))){VAR = DEF; FLAG = 1;};
 
 
 #define NUMBER_LOGIN_BYTES 37 //TODO
 
-#define PING_INTERVALL_DEF 60*10
-#define PING_INTERVALL_MIN 60
-#define PING_INTERVALL_MAX 60*120
+#define PING_INTERVALL_DEF 10
+#define PING_INTERVALL_MIN 1
+#define PING_INTERVALL_MAX 255
 
 #define T_TRANSMISSION_MIN_DEF 20	 //20s
 #define T_TRANSMISSION_MIN_MIN 1	 //1s
@@ -91,7 +93,7 @@ typedef struct {
 typedef struct {
 	uint16_t t_transmission_min;	/**< @brief Minimal time between Measurement-Data Transmissions (in seconds) */
 	uint16_t t_transmission_max;	/**< @brief Maximum time between Measurement-Data Transmissions (in minutes) */
-	uint16_t ping_intervall;        /**< @brief time intervall between pings to the server (in seconds) */
+	uint8_t  ping_intervall;        /**< @brief time intervall between pings to the server (in seconds) */
 	
 	ADCparamsType helium_par;
 	ADCparamsType N2_1_par;

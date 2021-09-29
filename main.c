@@ -169,6 +169,20 @@ uint8_t ping_server(void)
 	return 1;
 }
 
+void debug_ms(char * debug_message,int16_t number){
+	#ifdef LCD_DEBUG
+	LCD_String(debug_message,0,0);
+	
+	char temp[13];
+	
+	sprintf(temp,"%i",number);
+	LCD_String(temp,0,1);
+	
+	_delay_ms(500);
+	
+	#endif
+}
+
 
 /**
 * @brief Initializes the interrupts of the controller.
@@ -200,6 +214,10 @@ void paint_none(char* infoline,_Bool update){
 
 void init(void){
 	
+	#ifdef LCD_DEBUG
+	init_LCD();
+	#endif
+	
 	version_INIT(FIRMWARE_VERSION,BRANCH_ID,FIRMWARE_VERSION);
 	
 	//init_ports();
@@ -209,14 +227,22 @@ void init(void){
 	_delay_ms(100);
 
 	//init_interrupts();
+	#ifdef LCD_DEBUG
+	xbee_init(&LCD_paint_info_line,NULL,0);
+	#else
 	xbee_init(&paint_none,NULL,0);
+	#endif
+
 	_delay_ms(10);
 	init_timer();
 	_delay_ms(1000);
+	debug_ms("adc",1);
 	adc_init(HELIUM);
 	_delay_ms(100);
+	debug_ms("adc",2);
 	adc_init(NITROGEN_1);
 	_delay_ms(100);
+	debug_ms("adc",3);
 	adc_init(NITROGEN_2);
 	_delay_ms(100);
 	
@@ -442,34 +468,34 @@ void execute_server_CMDS(uint8_t reply_id){
 		
 		uint16_t_to_Buffer(Options.ping_intervall,sendbuffer,0);
 		
-		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,2);
-		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,4);
+		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,1);
+		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,3);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,6);
-		uint32_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,10);
-		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,14);
+		uint32_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
+		uint32_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
+		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,13);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,16);
-		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,20);
-		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,24);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
+		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,23);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,26);
-		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,30);
-		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,34);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
+		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
+		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,33);
 		
-		sendbuffer[36] = Options.measCycles;
+		sendbuffer[35] = Options.measCycles;
 		
-		sendbuffer[37] = 0; // statusbyte
+		sendbuffer[36] = 0; // statusbyte
 		
 
-		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,38);
+		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,37);
 		break;
 		
 		case SET_PING_INTERVALL_CMD:
 		;
 		uint8_t Val_outof_Bounds = 0;
 		
-		uint16_t buff_ping_Intervall  =            ((uint16_t) frameBuffer[reply_id].data[0] << 8) | frameBuffer[reply_id].data[1] ;
+		uint8_t buff_ping_Intervall  =           frameBuffer[reply_id].data[0];
 		
 		CHECK_BOUNDS(buff_ping_Intervall,PING_INTERVALL_MIN,PING_INTERVALL_MAX,PING_INTERVALL_DEF,Val_outof_Bounds);
 		if (!Val_outof_Bounds)
@@ -512,24 +538,24 @@ double span_zero_from_Buffer( uint8_t * buffer, uint8_t index){
 void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 	
 	optionsType OptionsBuff ={
-		.ping_intervall      =            ((uint16_t) optBuffer[0] << 8) | optBuffer[1] ,
+		.ping_intervall      =			  optBuffer[0],
 		
-		.t_transmission_min  =            ((uint16_t) optBuffer[2] << 8) | optBuffer[3] ,
-		.t_transmission_max  =            ((uint16_t) optBuffer[4] << 8) | optBuffer[5] ,
+		.t_transmission_min  =            ((uint16_t) optBuffer[1] << 8) | optBuffer[2] ,
+		.t_transmission_max  =            ((uint16_t) optBuffer[3] << 8) | optBuffer[4] ,
 		
-		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,6),
-		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,10) ,
-		.helium_par.delta    =			  ((uint16_t) optBuffer[14] << 8) | optBuffer[15] ,
+		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,5),
+		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,9) ,
+		.helium_par.delta    =			  ((uint16_t) optBuffer[14] << 7) | optBuffer[14] ,
 		
-		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,16),
-		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,20) ,
-		.N2_1_par.delta    =			  ((uint16_t) optBuffer[24] << 8) | optBuffer[25] ,
+		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,15),
+		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,19) ,
+		.N2_1_par.delta    =			  ((uint16_t) optBuffer[23] << 8) | optBuffer[24] ,
 		
-		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,26) ,
-		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,30) ,
-		.N2_2_par.delta    =			  ((uint16_t) optBuffer[34] << 8) | optBuffer[35],
+		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,25) ,
+		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,29) ,
+		.N2_2_par.delta    =			  ((uint16_t) optBuffer[33] << 8) | optBuffer[35],
 		
-		.measCycles		   =              optBuffer[36]
+		.measCycles		   =              optBuffer[35]
 		
 		
 		
@@ -539,22 +565,34 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 	uint8_t Val_outof_Bounds = 0;
 	
 	CHECK_BOUNDS(OptionsBuff.ping_intervall,PING_INTERVALL_MIN,PING_INTERVALL_MAX,PING_INTERVALL_DEF,Val_outof_Bounds);
-
+	debug_ms("ping interv",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.t_transmission_min,T_TRANSMISSION_MIN_MIN,T_TRANSMISSION_MIN_MAX,T_TRANSMISSION_MIN_DEF,Val_outof_Bounds);
+	debug_ms("trans min",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.t_transmission_max,T_TRANSMISSION_MAX_MIN,T_TRANSMISSION_MAX_MAX,T_TRANSMISSION_MAX_DEF,Val_outof_Bounds);
-
+	debug_ms("trans max",Val_outof_Bounds);
 
 	CHECK_BOUNDS(OptionsBuff.helium_par.span,HE_SPAN_MIN,HE_SPAN_MAX,HE_SPAN_DEF,Val_outof_Bounds);
+	debug_ms("he span",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.helium_par.zero,HE_ZERO_MIN,HE_ZERO_MAX,HE_ZERO_DEF,Val_outof_Bounds);
+	debug_ms("he zero",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.helium_par.delta,HE_DELTA_MIN,HE_DELTA_MAX,HE_DELTA_DEF,Val_outof_Bounds);
+	debug_ms("he delta",Val_outof_Bounds);
+	
 	
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.span,N2_1_SPAN_MIN,N2_1_SPAN_MAX,N2_1_SPAN_DEF,Val_outof_Bounds);
+	debug_ms("N2 1 span",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.zero,N2_1_ZERO_MIN,N2_1_ZERO_MAX,N2_1_ZERO_DEF,Val_outof_Bounds);
+	debug_ms("N2 1 zero",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.delta,N2_1_DELTA_MIN,N2_1_DELTA_MAX,N2_1_DELTA_DEF,Val_outof_Bounds);
+	debug_ms("N2 1 delta",Val_outof_Bounds);
+	
 	
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.span,N2_2_SPAN_MIN,N2_2_SPAN_MAX,N2_2_SPAN_DEF,Val_outof_Bounds);
+	debug_ms("N2 2 span",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.zero,N2_2_ZERO_MIN,N2_2_ZERO_MAX,N2_2_ZERO_DEF,Val_outof_Bounds);
+	debug_ms("N2 2 zero",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.delta,N2_2_DELTA_MIN,N2_2_DELTA_MAX,N2_2_DELTA_DEF,Val_outof_Bounds);
+	debug_ms("N2 2 delta",Val_outof_Bounds);
 
 	if (OptionsBuff.t_transmission_min >= OptionsBuff.t_transmission_max * 60)
 	{
@@ -598,9 +636,11 @@ int main(void)
 	
 	if(xbee_reset_connection())
 	{
+		debug_ms("res conn ok",1);
 
 		if(xbee_get_server_adrr())
 		{
+			debug_ms("coord addr",1);
 			_delay_ms(2000);
 			if(!CHECK_ERROR(NETWORK_ERROR))
 			{
@@ -708,7 +748,7 @@ int main(void)
 			//   PING
 			//==========================================================
 			// since pressure/temp is measured every 5s and ping is done every 60+2 seconds to ensure they dont get triggerd at the same Second
-			if (((count_t_elapsed % Options.ping_intervall) == 2) && ((count_t_elapsed - last.time_ping) > 5 ))
+			if (((count_t_elapsed % (Options.ping_intervall*60)) == 2) && ((count_t_elapsed - last.time_ping) > 5 ))
 			{
 				last.time_ping = count_t_elapsed;
 				
@@ -743,7 +783,7 @@ int main(void)
 			//========================================================
 			// try to Reconnect after every ping_intervall (Reconnect_after_time)
 			//========================================================
-			if (count_t_elapsed % Options.ping_intervall == 2){
+			if (count_t_elapsed % (Options.ping_intervall*60) == 2){
 				if (!xbee_reconnect())
 				{
 					//Associated
