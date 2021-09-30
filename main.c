@@ -474,29 +474,29 @@ void execute_server_CMDS(uint8_t reply_id){
 		case GET_OPTIONS_CMD : ;// send current options to Server
 
 		
-		uint16_t_to_Buffer(Options.ping_intervall,sendbuffer,0);
+		sendbuffer[0] = Options.ping_intervall;
 		
 		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,1);
 		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,3);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
-		uint32_t_to_Buffer((uint16_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
+		uint32_t_to_Buffer((uint32_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
+		uint32_t_to_Buffer((uint32_t)((int32_t)Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
 		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,13);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
-		uint32_t_to_Buffer((uint16_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
+		uint32_t_to_Buffer((uint32_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
+		uint32_t_to_Buffer((uint32_t)((int32_t)Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
 		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,23);
 		
-		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
-		uint32_t_to_Buffer((uint16_t)(Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
+		uint32_t_to_Buffer((uint32_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
+		uint32_t_to_Buffer((uint32_t)((int32_t) Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
 		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,33);
 		
 		sendbuffer[35] = Options.measCycles;
 		
-		sendbuffer[36] = 0; // statusbyte
+
 		
 
-		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,37);
+		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,36);
 		break;
 		
 		case SET_PING_INTERVALL_CMD:
@@ -531,10 +531,10 @@ void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index){
 
 
 void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index){
-	buffer[index]   =           var >> 24;
-	buffer[index]   =           var >> 16;
-	buffer[index]   =           var >> 8;
-	buffer[++index] = (uint8_t) var;
+	buffer[index]     =           var >> 24;
+	buffer[++index]   =           var >> 16;
+	buffer[++index]   =           var >> 8;
+	buffer[++index]   = (uint8_t) var;
 }
 
 double span_zero_from_Buffer( uint8_t * buffer, uint8_t index){
