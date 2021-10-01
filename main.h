@@ -23,7 +23,7 @@
 #define CHECK_BOUNDS(VAR,MIN,MAX,DEF,FLAG) if((VAR < MIN) || (VAR > MAX || isnan(VAR))){VAR = DEF; FLAG = 1;};
 
 
-#define NUMBER_LOGIN_BYTES 37 //TODO
+#define NUMBER_LOGIN_BYTES 36 
 
 #define PING_INTERVALL_DEF 10
 #define PING_INTERVALL_MIN 1
@@ -62,17 +62,17 @@
 #define HE_ZERO_MIN  (-10000)
 #define HE_ZERO_MAX  ( 10000)
 
-#define N2_1_DELTA_DEF  10
-#define N2_1_DELTA_MIN  0
-#define N2_1_DELTA_MAX  1000
+#define N2_1_DELTA_DEF  1.0
+#define N2_1_DELTA_MIN  0.1
+#define N2_1_DELTA_MAX  100.0
 
-#define N2_2_DELTA_DEF  10
-#define N2_2_DELTA_MIN  0
-#define N2_2_DELTA_MAX  1000
+#define N2_2_DELTA_DEF  1.0
+#define N2_2_DELTA_MIN  0.1
+#define N2_2_DELTA_MAX  100.0
 
-#define HE_DELTA_DEF    10
-#define HE_DELTA_MIN    0
-#define HE_DELTA_MAX    1000
+#define HE_DELTA_DEF    1.0
+#define HE_DELTA_MIN    0.1
+#define HE_DELTA_MAX    100.0
 
 #define MEAS_CYCLES_DEF 40
 #define MEAS_CYCLES_MIN  1
@@ -86,7 +86,7 @@
 typedef struct {
 	double span;
 	double zero;
-	uint16_t delta;
+	double delta;
 }ADCparamsType;
 
 

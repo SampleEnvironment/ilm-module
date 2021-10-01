@@ -179,7 +179,7 @@ void debug_ms(char * debug_message,int16_t number){
 	sprintf(temp,"%i",number);
 	LCD_String(temp,0,1);
 	
-	_delay_ms(1000);
+	_delay_ms(100);
 	
 	#endif
 }
@@ -317,10 +317,10 @@ uint8_t read_optsEEPROM(void){
 	}
 	
 	
-	if (!Val_outof_Bounds)
-	{
-		memcpy(&Options,&OptionsBuff,sizeof(Options));
-	}
+
+	
+	memcpy(&Options,&OptionsBuff,sizeof(Options));
+	
 	
 	
 	return Val_outof_Bounds;
@@ -481,22 +481,22 @@ void execute_server_CMDS(uint8_t reply_id){
 		
 		uint32_t_to_Buffer((uint32_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
 		uint32_t_to_Buffer((uint32_t)((int32_t)Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
-		uint16_t_to_Buffer(Options.helium_par.delta,sendbuffer,13);
+		uint16_t_to_Buffer((uint16_t)Options.helium_par.delta*10,sendbuffer,13);
 		
 		uint32_t_to_Buffer((uint32_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
 		uint32_t_to_Buffer((uint32_t)((int32_t)Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
-		uint16_t_to_Buffer(Options.N2_1_par.delta,sendbuffer,23);
+		uint16_t_to_Buffer((uint16_t)Options.N2_1_par.delta*10,sendbuffer,23);
 		
 		uint32_t_to_Buffer((uint32_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
 		uint32_t_to_Buffer((uint32_t)((int32_t) Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
-		uint16_t_to_Buffer(Options.N2_2_par.delta,sendbuffer,33);
+		uint16_t_to_Buffer((uint16_t)Options.N2_2_par.delta*10,sendbuffer,33);
 		
 		sendbuffer[35] = Options.measCycles;
 		
 
 		
 
-		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,36);
+		xbee_send_message(GET_OPTIONS_CMD,sendbuffer,NUMBER_LOGIN_BYTES);
 		break;
 		
 		case SET_PING_INTERVALL_CMD:
@@ -553,15 +553,15 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 		
 		.helium_par.span     =		      span_zero_from_Buffer(optBuffer,5),
 		.helium_par.zero     =		      span_zero_from_Buffer(optBuffer,9) ,
-		.helium_par.delta    =			  ((uint16_t) optBuffer[14] << 7) | optBuffer[14] ,
+		.helium_par.delta    =			  ((double)(((uint16_t) optBuffer[13] << 8) | optBuffer[14]))/10 ,
 		
 		.N2_1_par.span     =		      span_zero_from_Buffer(optBuffer,15),
 		.N2_1_par.zero     =		      span_zero_from_Buffer(optBuffer,19) ,
-		.N2_1_par.delta    =			  ((uint16_t) optBuffer[23] << 8) | optBuffer[24] ,
+		.N2_1_par.delta    =			  ((double)(((uint16_t) optBuffer[23] << 8) | optBuffer[24]))/10 ,
 		
 		.N2_2_par.span     =		      span_zero_from_Buffer(optBuffer,25) ,
 		.N2_2_par.zero     =		      span_zero_from_Buffer(optBuffer,29) ,
-		.N2_2_par.delta    =			  ((uint16_t) optBuffer[33] << 8) | optBuffer[35],
+		.N2_2_par.delta    =			  ((double)(((uint16_t) optBuffer[33] << 8) | optBuffer[34]))/10,
 		
 		.measCycles		   =              optBuffer[35]
 		
@@ -584,7 +584,7 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 	CHECK_BOUNDS(OptionsBuff.helium_par.zero,HE_ZERO_MIN,HE_ZERO_MAX,HE_ZERO_DEF,Val_outof_Bounds);
 	debug_ms("he zero",Val_outof_Bounds);
 	CHECK_BOUNDS(OptionsBuff.helium_par.delta,HE_DELTA_MIN,HE_DELTA_MAX,HE_DELTA_DEF,Val_outof_Bounds);
-	debug_ms("he delta",Val_outof_Bounds);
+	debug_ms("he delta",(int)OptionsBuff.helium_par.delta);
 	
 	
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.span,N2_1_SPAN_MIN,N2_1_SPAN_MAX,N2_1_SPAN_DEF,Val_outof_Bounds);
@@ -653,15 +653,14 @@ int main(void)
 			if(!CHECK_ERROR(NETWORK_ERROR))
 			{
 
-				_delay_ms(2000);
 				//=========================================================================
 				// Device Login
 				//=========================================================================
-
+				debug_ms("send login",1);
 				uint8_t reply_id = xbee_send_login_msg(LOGIN_MSG, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
-					
+					debug_ms("rec login",1);	
 					set_Options((uint8_t*)frameBuffer[reply_id].data,OPTIONS_SET_ACK);
 					
 				}
