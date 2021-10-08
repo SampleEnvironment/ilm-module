@@ -169,17 +169,17 @@ uint8_t ping_server(void)
 	return 1;
 }
 
-void debug_ms(char * debug_message,int16_t number){
+void debug_ms(char * debug_message,int16_t number, char * format){
 	#ifdef LCD_DEBUG
 	LCD_Clear();
 	LCD_String(debug_message,0,0);
 	
 	char temp[13];
 	
-	sprintf(temp,"%i",number);
+	sprintf(temp,format,number);
 	LCD_String(temp,0,1);
 	
-	_delay_ms(100);
+	_delay_ms(500);
 	
 	#endif
 }
@@ -237,13 +237,13 @@ void init(void){
 	_delay_ms(10);
 	init_timer();
 	_delay_ms(1000);
-	debug_ms("adc",1);
+
 	adc_init(HELIUM);
 	_delay_ms(100);
-	debug_ms("adc",2);
+
 	adc_init(NITROGEN_1);
 	_delay_ms(100);
-	debug_ms("adc",3);
+
 	adc_init(NITROGEN_2);
 	_delay_ms(100);
 	
@@ -314,6 +314,22 @@ uint8_t read_optsEEPROM(void){
 		OptionsBuff.t_transmission_max = T_TRANSMISSION_MAX_DEF;
 		
 		Val_outof_Bounds = 1 ;
+	}
+	
+	if (OptionsBuff.helium_par.span == 0 )
+	{
+		OptionsBuff.helium_par.span = HE_SPAN_DEF;
+		Val_outof_Bounds = 1;
+	}
+	if (OptionsBuff.N2_1_par.span == 0 )
+	{
+		OptionsBuff.N2_1_par.span = N2_1_SPAN_DEF;
+		Val_outof_Bounds = 1;
+	}
+	if (OptionsBuff.N2_2_par.span == 0 )
+	{
+		OptionsBuff.N2_2_par.span = N2_2_SPAN_DEF;
+		Val_outof_Bounds = 1;
 	}
 	
 	
@@ -479,16 +495,16 @@ void execute_server_CMDS(uint8_t reply_id){
 		uint16_t_to_Buffer(Options.t_transmission_min,sendbuffer,1);
 		uint16_t_to_Buffer(Options.t_transmission_max,sendbuffer,3);
 		
-		uint32_t_to_Buffer((uint32_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
-		uint32_t_to_Buffer((uint32_t)((int32_t)Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
+		int32_t_to_Buffer((int32_t)(Options.helium_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,5);
+		int32_t_to_Buffer((int32_t)(Options.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,9);
 		uint16_t_to_Buffer((uint16_t)Options.helium_par.delta*10,sendbuffer,13);
 		
-		uint32_t_to_Buffer((uint32_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
-		uint32_t_to_Buffer((uint32_t)((int32_t)Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
+		int32_t_to_Buffer((int32_t)(Options.N2_1_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,15);
+		int32_t_to_Buffer((int32_t)(Options.N2_1_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,19);
 		uint16_t_to_Buffer((uint16_t)Options.N2_1_par.delta*10,sendbuffer,23);
 		
-		uint32_t_to_Buffer((uint32_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
-		uint32_t_to_Buffer((uint32_t)((int32_t) Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
+		int32_t_to_Buffer((int32_t)(Options.N2_2_par.span*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,25);
+		int32_t_to_Buffer((int32_t) (Options.N2_2_par.zero*SPAN_ZERO_DECIMAL_PLACES),sendbuffer,29);
 		uint16_t_to_Buffer((uint16_t)Options.N2_2_par.delta*10,sendbuffer,33);
 		
 		sendbuffer[35] = Options.measCycles;
@@ -530,7 +546,7 @@ void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index){
 }
 
 
-void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index){
+void int32_t_to_Buffer(int32_t var, uint8_t * buffer, uint8_t index){
 	buffer[index]     =           var >> 24;
 	buffer[++index]   =           var >> 16;
 	buffer[++index]   =           var >> 8;
@@ -538,7 +554,7 @@ void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index){
 }
 
 double span_zero_from_Buffer( uint8_t * buffer, uint8_t index){
-	return ((double) (((uint32_t) buffer[index] << 24) |((uint32_t) buffer[index+1] << 16) |((uint32_t) buffer[index+2] << 8) | buffer[index+3]))/SPAN_ZERO_DECIMAL_PLACES;
+	return ((double) (((int32_t) buffer[index] << 24) |((int32_t) buffer[index+1] << 16) |((int32_t) buffer[index+2] << 8) | buffer[index+3]))/SPAN_ZERO_DECIMAL_PLACES;
 }
 
 
@@ -569,38 +585,44 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 		
 	};
 	
-	
+
 	uint8_t Val_outof_Bounds = 0;
 	
 	CHECK_BOUNDS(OptionsBuff.ping_intervall,PING_INTERVALL_MIN,PING_INTERVALL_MAX,PING_INTERVALL_DEF,Val_outof_Bounds);
-	debug_ms("ping interv",Val_outof_Bounds);
+	debug_ms("ping interv",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.t_transmission_min,T_TRANSMISSION_MIN_MIN,T_TRANSMISSION_MIN_MAX,T_TRANSMISSION_MIN_DEF,Val_outof_Bounds);
-	debug_ms("trans min",Val_outof_Bounds);
+	debug_ms("trans min",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.t_transmission_max,T_TRANSMISSION_MAX_MIN,T_TRANSMISSION_MAX_MAX,T_TRANSMISSION_MAX_DEF,Val_outof_Bounds);
-	debug_ms("trans max",Val_outof_Bounds);
+	debug_ms("trans max",Val_outof_Bounds, "%i");
 
 	CHECK_BOUNDS(OptionsBuff.helium_par.span,HE_SPAN_MIN,HE_SPAN_MAX,HE_SPAN_DEF,Val_outof_Bounds);
-	debug_ms("he span",Val_outof_Bounds);
+	debug_ms("he span",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.helium_par.zero,HE_ZERO_MIN,HE_ZERO_MAX,HE_ZERO_DEF,Val_outof_Bounds);
-	debug_ms("he zero",Val_outof_Bounds);
+	debug_ms("he zero", OptionsBuff.helium_par.zero*SPAN_ZERO_DECIMAL_PLACES, "%i");
 	CHECK_BOUNDS(OptionsBuff.helium_par.delta,HE_DELTA_MIN,HE_DELTA_MAX,HE_DELTA_DEF,Val_outof_Bounds);
-	debug_ms("he delta",(int)OptionsBuff.helium_par.delta);
+	debug_ms("he delta",OptionsBuff.helium_par.delta, "%i");
 	
 	
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.span,N2_1_SPAN_MIN,N2_1_SPAN_MAX,N2_1_SPAN_DEF,Val_outof_Bounds);
-	debug_ms("N2 1 span",Val_outof_Bounds);
+	debug_ms("N2 1 span",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.zero,N2_1_ZERO_MIN,N2_1_ZERO_MAX,N2_1_ZERO_DEF,Val_outof_Bounds);
-	debug_ms("N2 1 zero",Val_outof_Bounds);
+	debug_ms("N2 1 zero",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.N2_1_par.delta,N2_1_DELTA_MIN,N2_1_DELTA_MAX,N2_1_DELTA_DEF,Val_outof_Bounds);
-	debug_ms("N2 1 delta",Val_outof_Bounds);
+	debug_ms("N2 1 delta",Val_outof_Bounds, "%i");
 	
 	
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.span,N2_2_SPAN_MIN,N2_2_SPAN_MAX,N2_2_SPAN_DEF,Val_outof_Bounds);
-	debug_ms("N2 2 span",Val_outof_Bounds);
+	debug_ms("N2 2 span",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.zero,N2_2_ZERO_MIN,N2_2_ZERO_MAX,N2_2_ZERO_DEF,Val_outof_Bounds);
-	debug_ms("N2 2 zero",Val_outof_Bounds);
+	debug_ms("N2 2 zero",Val_outof_Bounds, "%i");
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.delta,N2_2_DELTA_MIN,N2_2_DELTA_MAX,N2_2_DELTA_DEF,Val_outof_Bounds);
-	debug_ms("N2 2 delta",Val_outof_Bounds);
+	debug_ms("N2 2 delta",Val_outof_Bounds, "%i");
+	
+	if (OptionsBuff.helium_par.span == 0 || OptionsBuff.N2_1_par.span == 0 || OptionsBuff.N2_2_par.span == 0)
+	{
+		Val_outof_Bounds = 1;
+	}
+	
 
 	if (OptionsBuff.t_transmission_min >= OptionsBuff.t_transmission_max * 60)
 	{
@@ -610,6 +632,8 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 		Val_outof_Bounds = 1 ;
 	}
 	
+
+	
 	if (!Val_outof_Bounds)
 	{
 		//no problem with received options --> save them in operational struct
@@ -617,6 +641,7 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 		write_optsEEPROM();
 		sendbuffer[0] = 0; // setting options was successful
 		xbee_send_message(answer_code,sendbuffer,1);
+		
 		}else{
 		
 		sendbuffer[0] = 1; // setting options was not successful
@@ -644,11 +669,11 @@ int main(void)
 	
 	if(xbee_reset_connection())
 	{
-		debug_ms("res conn ok",1);
+
 
 		if(xbee_get_server_adrr())
 		{
-			debug_ms("coord addr",1);
+
 			_delay_ms(2000);
 			if(!CHECK_ERROR(NETWORK_ERROR))
 			{
@@ -656,11 +681,11 @@ int main(void)
 				//=========================================================================
 				// Device Login
 				//=========================================================================
-				debug_ms("send login",1);
+
 				uint8_t reply_id = xbee_send_login_msg(LOGIN_MSG, sendbuffer);
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
-					debug_ms("rec login",1);	
+					debug_ms("rec login",1, "%i");
 					set_Options((uint8_t*)frameBuffer[reply_id].data,OPTIONS_SET_ACK);
 					
 				}

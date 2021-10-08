@@ -38,7 +38,7 @@
 #define T_TRANSMISSION_MAX_MAX 60*10 //10h
 
 #define N2_1_SPAN_DEF  1		
-#define N2_1_SPAN_MIN  0.0001
+#define N2_1_SPAN_MIN  (-10000)
 #define N2_1_SPAN_MAX  10000
 
 #define N2_1_ZERO_DEF  0
@@ -46,7 +46,7 @@
 #define N2_1_ZERO_MAX  ( 10000)
 
 #define N2_2_SPAN_DEF  1
-#define N2_2_SPAN_MIN  0.0001
+#define N2_2_SPAN_MIN  (-10000)
 #define N2_2_SPAN_MAX  10000
 
 #define N2_2_ZERO_DEF  0
@@ -55,7 +55,7 @@
 
 
 #define HE_SPAN_DEF  1
-#define HE_SPAN_MIN  0.0001
+#define HE_SPAN_MIN  (-10000)
 #define HE_SPAN_MAX  10000
 
 #define HE_ZERO_DEF  0
@@ -146,7 +146,7 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer);
 uint8_t ping_server(void);
 void execute_server_CMDS(uint8_t reply_id);
 void uint16_t_to_Buffer(uint16_t var, uint8_t * buffer, uint8_t index);
-void uint32_t_to_Buffer(uint32_t var, uint8_t * buffer, uint8_t index);
+void int32_t_to_Buffer(int32_t var, uint8_t * buffer, uint8_t index);
 double span_zero_from_Buffer( uint8_t * buffer, uint8_t index);
 void read_channels(void);
 void Collect_Measurement_Data(void);
