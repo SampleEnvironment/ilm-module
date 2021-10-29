@@ -395,9 +395,9 @@ uint8_t xbee_send_login_msg(uint8_t db_cmd_type, uint8_t *buffer)
 
 
 void read_channels(void){
-	current_meas.He   = (readChannel(HELIUM,    Options.measCycles) * Options.helium_par.span) + Options.helium_par.zero;
-	current_meas.N2_1 = (readChannel(NITROGEN_1,Options.measCycles) * Options.N2_1_par.span)   + Options.N2_1_par.zero;
-	current_meas.N2_2 = (readChannel(NITROGEN_2,Options.measCycles) * Options.N2_2_par.span)   + Options.N2_2_par.zero;
+	current_meas.He   = ((double)readChannel_ILM(HELIUM,    Options.measCycles) * Options.helium_par.span) + Options.helium_par.zero;
+	current_meas.N2_1 = ((double)readChannel_ILM(NITROGEN_1,Options.measCycles) * Options.N2_1_par.span)   + Options.N2_1_par.zero;
+	current_meas.N2_2 = ((double)readChannel_ILM(NITROGEN_2,Options.measCycles) * Options.N2_2_par.span)   + Options.N2_2_par.zero;
 	
 	current_meas.He   = (current_meas.He   > 100)? 100.0 : current_meas.He;
 	current_meas.N2_1 = (current_meas.N2_1 > 100)? 100.0 : current_meas.N2_1;
@@ -531,6 +531,34 @@ void execute_server_CMDS(uint8_t reply_id){
 		//send status ack
 		xbee_send_message(SET_PING_INTERVALL_CMD,sendbuffer,1);
 		break;
+		
+		case GET_RAW_DATA_CMD:
+		;
+		uint16_t He_u16 = (uint16_t) readChannel_ILM(HELIUM,Options.measCycles);
+		
+		uint16_t N2_1_u16 = (uint16_t) readChannel_ILM(NITROGEN_1,Options.measCycles);
+		
+		uint16_t N2_2_u16 = (uint16_t) readChannel_ILM(NITROGEN_2,Options.measCycles);
+		
+		uint16_t He_u16_perc    = ((((double)He_u16) * Options.helium_par.span) + Options.helium_par.zero)*10;
+		uint16_t N2_1_u16_perc  = ((((double)N2_1_u16)* Options.N2_1_par.span)   + Options.N2_1_par.zero)*10;
+		uint16_t N2_2_u16_perc  = ((((double)N2_2_u16)* Options.N2_2_par.span)   + Options.N2_2_par.zero)*10;
+			
+		uint16_t_to_Buffer(He_u16_perc,sendbuffer,0);
+		uint16_t_to_Buffer(N2_1_u16_perc,sendbuffer,2);
+		uint16_t_to_Buffer(N2_2_u16_perc,sendbuffer,4);
+		
+		uint16_t_to_Buffer(He_u16,sendbuffer,6);
+		uint16_t_to_Buffer(N2_1_u16,sendbuffer,8);
+		uint16_t_to_Buffer(N2_2_u16,sendbuffer,10);
+		
+		sendbuffer[12] = 0;
+		
+		xbee_send_message(GET_RAW_DATA_CMD,sendbuffer,13);
+		
+		break;
+		
+		
 		
 
 	}
@@ -669,12 +697,12 @@ int main(void)
 	
 	if(xbee_reset_connection())
 	{
-
+		_delay_ms(100);
 
 		if(xbee_get_server_adrr())
 		{
 
-			_delay_ms(2000);
+			_delay_ms(100);
 			if(!CHECK_ERROR(NETWORK_ERROR))
 			{
 
@@ -686,6 +714,7 @@ int main(void)
 				
 				if (reply_id!= 0xFF ){ // GOOD OPTIONS RECEIVED
 					debug_ms("rec login",1, "%i");
+					_delay_ms(100);
 					set_Options((uint8_t*)frameBuffer[reply_id].data,OPTIONS_SET_ACK);
 					
 				}
