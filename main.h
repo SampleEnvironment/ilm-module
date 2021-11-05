@@ -9,7 +9,7 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
-#define FIRMWARE_VERSION  3 /**< @brief  Software Version  */
+#define FIRMWARE_VERSION  4 /**< @brief  Software Version  */
 
 #define BRANCH_ID 1
 

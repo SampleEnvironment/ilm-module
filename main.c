@@ -316,21 +316,7 @@ uint8_t read_optsEEPROM(void){
 		Val_outof_Bounds = 1 ;
 	}
 	
-	if (OptionsBuff.helium_par.span == 0 )
-	{
-		OptionsBuff.helium_par.span = HE_SPAN_DEF;
-		Val_outof_Bounds = 1;
-	}
-	if (OptionsBuff.N2_1_par.span == 0 )
-	{
-		OptionsBuff.N2_1_par.span = N2_1_SPAN_DEF;
-		Val_outof_Bounds = 1;
-	}
-	if (OptionsBuff.N2_2_par.span == 0 )
-	{
-		OptionsBuff.N2_2_par.span = N2_2_SPAN_DEF;
-		Val_outof_Bounds = 1;
-	}
+
 	
 	
 
@@ -646,11 +632,7 @@ void set_Options( uint8_t * optBuffer,uint8_t answer_code){
 	CHECK_BOUNDS(OptionsBuff.N2_2_par.delta,N2_2_DELTA_MIN,N2_2_DELTA_MAX,N2_2_DELTA_DEF,Val_outof_Bounds);
 	debug_ms("N2 2 delta",Val_outof_Bounds, "%i");
 	
-	if (OptionsBuff.helium_par.span == 0 || OptionsBuff.N2_1_par.span == 0 || OptionsBuff.N2_2_par.span == 0)
-	{
-		Val_outof_Bounds = 1;
-	}
-	
+
 
 	if (OptionsBuff.t_transmission_min >= OptionsBuff.t_transmission_max * 60)
 	{
