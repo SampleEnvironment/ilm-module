@@ -11,10 +11,12 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
+#include "config.h"
 #include "main.h"
 #include "adwandler.h"
 #include "usart.h"
 #include "xbee.h"
+#include "xbee_AT_comm.h"
 #include "module_globals.h"
 #include "status.h"
 #include "xbee_utilities.h"
@@ -106,7 +108,7 @@ const uint8_t Measure_Interval = 2;
 uint8_t analyze_Connection(void)
 {
 
-	if (!xbee_reconnect())
+	if (!xbee_reconnect(0))
 	{
 		//Associated
 		CLEAR_ERROR(NETWORK_ERROR);
@@ -221,13 +223,13 @@ void init(void){
 	
 	version_INIT(FIRMWARE_VERSION,BRANCH_ID,FIRMWARE_VERSION);
 	
-	//init_ports();
+	init_ports();
 	
 	_delay_ms(1000);
 	usart_init(39);  //USART0 init with 9600 baud
 	_delay_ms(100);
 
-	//init_interrupts();
+	init_interrupts();
 	#ifdef LCD_DEBUG
 	xbee_init(&LCD_paint_info_line,NULL,0);
 	#else
@@ -677,7 +679,7 @@ int main(void)
 	
 	read_optsEEPROM();
 	
-	if(xbee_reset_connection())
+	if(xbee_reset_connection(1))
 	{
 		_delay_ms(100);
 
@@ -827,7 +829,7 @@ int main(void)
 			// try to Reconnect after every ping_intervall (Reconnect_after_time)
 			//========================================================
 			if (count_t_elapsed % (Options.ping_intervall*60) == 2){
-				if (!xbee_reconnect())
+				if (!xbee_reconnect(0))
 				{
 					//Associated
 					CLEAR_ERROR(NETWORK_ERROR);

@@ -46,7 +46,7 @@
     <com_atmel_avrdbg_tool_powerdebugger>
       <ToolOptions>
         <InterfaceProperties>
-          <IspClock>986057</IspClock>
+          <IspClock>916617</IspClock>
         </InterfaceProperties>
         <InterfaceName>ISP</InterfaceName>
       </ToolOptions>
@@ -55,7 +55,7 @@
       <ToolName>Power Debugger</ToolName>
     </com_atmel_avrdbg_tool_powerdebugger>
     <avrtoolinterface>ISP</avrtoolinterface>
-    <avrtoolinterfaceclock>986057</avrtoolinterfaceclock>
+    <avrtoolinterfaceclock>916617</avrtoolinterfaceclock>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <ToolchainSettings>
@@ -202,10 +202,19 @@
     <Compile Include="avr-util-library\xbee.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="avr-util-library\xbee_AT_comm.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="avr-util-library\xbee_AT_comm.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="avr-util-library\xbee_utilities.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="avr-util-library\xbee_utilities.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="config.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="LCD.c">

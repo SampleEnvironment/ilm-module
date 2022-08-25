@@ -9,15 +9,13 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
-#define FIRMWARE_VERSION  4 /**< @brief  Software Version  */
 
-#define BRANCH_ID 1
 
 #define HELIUM 0
 #define NITROGEN_1   1
 #define NITROGEN_2   2
 
-//#define  LCD_DEBUG
+#define  LCD_DEBUG
 
 
 #define CHECK_BOUNDS(VAR,MIN,MAX,DEF,FLAG) if((VAR < MIN) || (VAR > MAX || isnan(VAR))){VAR = DEF; FLAG = 1;};
