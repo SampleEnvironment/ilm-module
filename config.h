@@ -9,7 +9,7 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#define FIRMWARE_VERSION  5 /**< @brief  Software Version  */
+#define FIRMWARE_VERSION  6 /**< @brief  Software Version  */
 
 #define BRANCH_ID 1
 
