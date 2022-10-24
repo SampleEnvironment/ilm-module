@@ -27,6 +27,9 @@
 uint8_t 	sendbuffer[SINGLE_FRAME_LENGTH]; /**< @brief Send only Buffer used for sending data to the server for which no reply is expected i.e. Measurement data #CMD_send_data_91*/
 
 
+uint16_t EEMEM eeSC_mask;
+uint8_t  EEMEM eeSC_already_sent_from_server;
+
 optionsType EEMEM eeOptions = {
 	.ping_intervall = PING_INTERVALL_DEF,
 	
@@ -230,10 +233,31 @@ void init(void){
 	_delay_ms(100);
 
 	init_interrupts();
+	
+	
+	uint16_t SC_mask = eeprom_read_word(&eeSC_mask);
+	uint8_t SC_aleady_sent_from_server = eeprom_read_byte(&eeSC_already_sent_from_server);
+	
 	#ifdef LCD_DEBUG
-	xbee_init(&LCD_paint_info_line,NULL,0);
+	
+	if(SC_aleady_sent_from_server == SC_already_received_Pattern){
+		xbee_init(&LCD_paint_info_line,NULL,0,SC_mask);
+	}else
+	{
+		xbee_init(&LCD_paint_info_line,NULL,0,SC_MASK_DEFAULT);
+	}
+	
+
+	
 	#else
-	xbee_init(&paint_none,NULL,0);
+	
+	if(SC_aleady_sent_from_server == SC_already_received_Pattern){
+		xbee_init(&paint_none,NULL,0,SC_mask);
+	}else
+	{
+		xbee_init(&paint_none,NULL,0,SC_MASK_DEFAULT);
+	}	
+	
 	#endif
 
 	_delay_ms(10);
@@ -531,7 +555,7 @@ void execute_server_CMDS(uint8_t reply_id){
 		uint16_t He_u16_perc    = ((((double)He_u16) * Options.helium_par.span) + Options.helium_par.zero)*10;
 		uint16_t N2_1_u16_perc  = ((((double)N2_1_u16)* Options.N2_1_par.span)   + Options.N2_1_par.zero)*10;
 		uint16_t N2_2_u16_perc  = ((((double)N2_2_u16)* Options.N2_2_par.span)   + Options.N2_2_par.zero)*10;
-			
+		
 		uint16_t_to_Buffer(He_u16_perc,sendbuffer,0);
 		uint16_t_to_Buffer(N2_1_u16_perc,sendbuffer,2);
 		uint16_t_to_Buffer(N2_2_u16_perc,sendbuffer,4);
@@ -543,6 +567,33 @@ void execute_server_CMDS(uint8_t reply_id){
 		sendbuffer[12] = 0;
 		
 		xbee_send_message(GET_RAW_DATA_CMD,sendbuffer,13);
+		
+		break;
+		
+		case SET_SC_XBEE_MASK:;
+		uint16_t SC_mask = (frameBuffer[reply_id].data[0]<<8) + frameBuffer[reply_id].data[1];
+
+		
+		// write new sc mask to eeprom
+		eeprom_update_word(&eeSC_mask, SC_mask);
+		eeprom_update_byte(&eeSC_already_sent_from_server,SC_already_received_Pattern);
+		
+		//refresh xbee  parameters
+		
+		#ifdef LCD_DEBUG
+		xbee_init(&LCD_paint_info_line,NULL,0,SC_mask);
+		#else
+		xbee_init(&paint_none,NULL,0,SC_mask);
+		#endif
+		xbee_Set_Scan_Channels(xbee.ScanChannels);
+		xbee_WR();
+		
+		//Send Status Ack
+		sendbuffer[0] = 0;
+		xbee_send_message(SET_SC_XBEE_MASK,sendbuffer,1);
+		
+		
+		
 		
 		break;
 		
@@ -678,6 +729,10 @@ int main(void)
 	_delay_ms(4000);
 	
 	read_optsEEPROM();
+	
+	// set default sc mask
+	xbee_Set_Scan_Channels(xbee.ScanChannels);
+	xbee_WR();
 	
 	if(xbee_reset_connection(1))
 	{
