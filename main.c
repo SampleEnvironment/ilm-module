@@ -256,7 +256,7 @@ void init(void){
 	}else
 	{
 		xbee_init(&paint_none,NULL,0,SC_MASK_DEFAULT);
-	}	
+	}
 	
 	#endif
 
@@ -573,31 +573,41 @@ void execute_server_CMDS(uint8_t reply_id){
 		case SET_SC_XBEE_MASK:;
 		uint16_t SC_mask = (frameBuffer[reply_id].data[0]<<8) + frameBuffer[reply_id].data[1];
 
-		
-		// write new sc mask to eeprom
-		eeprom_update_word(&eeSC_mask, SC_mask);
-		eeprom_update_byte(&eeSC_already_sent_from_server,SC_already_received_Pattern);
-		
-		//refresh xbee  parameters
-		
-		#ifdef LCD_DEBUG
-		xbee_init(&LCD_paint_info_line,NULL,0,SC_mask);
-		#else
-		xbee_init(&paint_none,NULL,0,SC_mask);
-		#endif
-		xbee_Set_Scan_Channels(xbee.ScanChannels);
-		xbee_WR();
-		
-		//Send Status Ack
-		sendbuffer[0] = 0;
-		xbee_send_message(SET_SC_XBEE_MASK,sendbuffer,1);
-		
-		
-		
-		
+		if(!(SC_mask & 0xE001)){
+			// write new sc mask to eeprom
+			eeprom_update_word(&eeSC_mask, SC_mask);
+			eeprom_update_byte(&eeSC_already_sent_from_server,SC_already_received_Pattern);
+			
+			//refresh xbee  parameters
+			
+			#ifdef LCD_DEBUG
+			xbee_init(&LCD_paint_info_line,NULL,0,SC_mask);
+			#else
+			xbee_init(&paint_none,NULL,0,SC_mask);
+			#endif
+			xbee_Set_Scan_Channels(xbee.ScanChannels);
+			xbee_WR();
+			
+			//Send Status Ack
+			sendbuffer[0] = 0;
+			xbee_send_message(SET_SC_XBEE_MASK,sendbuffer,1);
+			}else{
+			//Send Status Ack
+			sendbuffer[0] = 1;
+			xbee_send_message(SET_SC_XBEE_MASK,sendbuffer,1);
+		}
 		break;
-		
-		
+
+		case GET_SC_XBEE_MASK:
+		;
+
+		sendbuffer[0] = xbee.ScanChannels >> 8;
+		sendbuffer[1] = xbee.ScanChannels;
+
+
+		xbee_send_message(GET_SC_XBEE_MASK, sendbuffer,2);
+
+		break;
 		
 
 	}
