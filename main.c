@@ -23,6 +23,8 @@
 #include "DS3231M.h"
 #include "LCD.h"
 
+#include "fuse_config.h"
+
 
 uint8_t 	sendbuffer[SINGLE_FRAME_LENGTH]; /**< @brief Send only Buffer used for sending data to the server for which no reply is expected i.e. Measurement data #CMD_send_data_91*/
 
