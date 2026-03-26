@@ -81,6 +81,39 @@
 #define MEASUREMENT_MESSAGE_LENGTH 7
 
 
+/* ---------------------------------------------------------------
+ * Auto-select Timer1 prescaler and OCR1A for exactly 1 Hz CTC
+ * Works for any F_CPU that divides evenly by a standard prescaler
+ * and whose tick count fits in 16 bits.
+ * --------------------------------------------------------------- */
+
+#if   (F_CPU % 1    == 0) && (F_CPU / 1    <= 65535)
+  #define T1_PRESC_BITS  (0)
+  #define T1_PRESC       1UL
+#elif (F_CPU % 8    == 0) && (F_CPU / 8    <= 65535)
+  #define T1_PRESC_BITS  (1<<CS11)
+  #define T1_PRESC       8UL
+#elif (F_CPU % 64   == 0) && (F_CPU / 64   <= 65535)
+  #define T1_PRESC_BITS  ((1<<CS11)|(1<<CS10))
+  #define T1_PRESC       64UL
+#elif (F_CPU % 256  == 0) && (F_CPU / 256  <= 65535)
+  #define T1_PRESC_BITS  (1<<CS12)
+  #define T1_PRESC       256UL
+#elif (F_CPU % 1024 == 0) && (F_CPU / 1024 <= 65535)
+  #define T1_PRESC_BITS  ((1<<CS12)|(1<<CS10))
+  #define T1_PRESC       1024UL
+#else
+  #error "F_CPU: no standard Timer1 prescaler gives exact 1 Hz"
+#endif
+
+#define T1_OCR1A  (F_CPU / T1_PRESC - 1UL)
+
+/* Sanity check — catches rounding issues at compile time */
+#if T1_OCR1A > 65535
+  #error "T1_OCR1A overflows 16-bit register"
+#endif
+
+
 typedef struct {
 	double span;
 	double zero;
